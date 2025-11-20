@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>待办列表</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #f4f5f7;
+      }
+
+      main {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 16px;
+      }
+
+      .app {
+        width: min(640px, 100%);
+        background: #fff;
+        border-radius: 20px;
+        padding: 32px;
+        box-shadow: 0 12px 45px rgba(15, 23, 42, 0.08);
+      }
+
+      h1 {
+        margin: 0 0 24px;
+        font-size: clamp(28px, 4vw, 36px);
+        color: #1f2937;
+      }
+
+      form {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+      }
+
+      input[type="text"] {
+        flex: 1 1 240px;
+        padding: 12px 16px;
+        border: 1px solid #d1d5db;
+        border-radius: 12px;
+        font-size: 16px;
+      }
+
+      button {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #fff;
+        background: linear-gradient(135deg, #2563eb, #7c3aed);
+        cursor: pointer;
+        transition: transform 0.1s ease, box-shadow 0.1s ease;
+      }
+
+      button:active {
+        transform: scale(0.98);
+      }
+
+      ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      li {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 18px;
+        border-radius: 14px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+      }
+
+      li.completed {
+        opacity: 0.7;
+        text-decoration: line-through;
+      }
+
+      li button {
+        margin-left: auto;
+        padding: 6px 12px;
+        font-size: 14px;
+        background: #ef4444;
+      }
+
+      .empty {
+        text-align: center;
+        color: #9ca3af;
+        padding: 32px 0;
+      }
+
+      .stats {
+        margin-top: 24px;
+        font-size: 14px;
+        color: #6b7280;
+        display: flex;
+        gap: 16px;
+      }
+
+      @media (max-width: 480px) {
+        .app {
+          padding: 24px 20px;
+        }
+
+        form {
+          flex-direction: column;
+        }
+
+        button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="app">
+        <h1>待办列表</h1>
+        <form id="todo-form">
+          <input id="todo-input" type="text" placeholder="输入新的待办事项…" required />
+          <button type="submit">添加</button>
+        </form>
+
+        <ul id="todo-list"></ul>
+        <p id="empty-state" class="empty">当前没有待办事项，快添加一个吧！</p>
+
+        <div class="stats">
+          <span id="total-count">总计：0</span>
+          <span id="done-count">已完成：0</span>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById("todo-form");
+      const input = document.getElementById("todo-input");
+      const list = document.getElementById("todo-list");
+      const empty = document.getElementById("empty-state");
+      const total = document.getElementById("total-count");
+      const done = document.getElementById("done-count");
+
+      const state = JSON.parse(localStorage.getItem("todos") ?? "[]");
+
+      const persist = () => localStorage.setItem("todos", JSON.stringify(state));
+
+      const refresh = () => {
+        list.innerHTML = "";
+        state.forEach((item) => {
+          const li = document.createElement("li");
+          if (item.completed) li.classList.add("completed");
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = item.completed;
+          checkbox.addEventListener("change", () => {
+            item.completed = !item.completed;
+            persist();
+            refresh();
+          });
+
+          const text = document.createElement("span");
+          text.textContent = item.text;
+
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.textContent = "删除";
+          remove.addEventListener("click", () => {
+            const index = state.findIndex((todo) => todo.id === item.id);
+            state.splice(index, 1);
+            persist();
+            refresh();
+          });
+
+          li.append(checkbox, text, remove);
+          list.appendChild(li);
+        });
+
+        const count = state.length;
+        const completed = state.filter((todo) => todo.completed).length;
+        empty.style.display = count ? "none" : "block";
+        total.textContent = `总计：${count}`;
+        done.textContent = `已完成：${completed}`;
+      };
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const text = input.value.trim();
+        if (!text) return;
+
+        state.push({
+          id: crypto.randomUUID(),
+          text,
+          completed: false,
+        });
+
+        persist();
+        refresh();
+        form.reset();
+        input.focus();
+      });
+
+      refresh();
+    </script>
+  </body>
+</html>
+
