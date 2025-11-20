@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>待办列表</title>
+    <title>Benjamin's Todo List</title>
     <style>
       :root {
         color-scheme: light dark;
@@ -42,18 +42,21 @@
       }
 
       form {
-        display: flex;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         gap: 12px;
-        flex-wrap: wrap;
         margin-bottom: 24px;
       }
 
-      input[type="text"] {
-        flex: 1 1 240px;
+      input[type="text"],
+      input[type="date"],
+      select {
+        width: 100%;
         padding: 12px 16px;
         border: 1px solid #d1d5db;
         border-radius: 12px;
         font-size: 16px;
+        background: #fff;
       }
 
       button {
@@ -89,6 +92,34 @@
         border-radius: 14px;
         background: #f9fafb;
         border: 1px solid #e5e7eb;
+      }
+
+      li .content {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .meta {
+        font-size: 13px;
+        color: #6b7280;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+
+      li.due-soon {
+        border-color: #fb923c;
+        background: #fff7ed;
       }
 
       li.completed {
@@ -135,9 +166,17 @@
   <body>
     <main>
       <section class="app">
-        <h1>待办列表</h1>
+        <h1>Benjamin To Do List </h1>
         <form id="todo-form">
           <input id="todo-input" type="text" placeholder="输入新的待办事项…" required />
+          <input id="todo-date" type="date" />
+          <select id="todo-remind">
+            <option value="0">不提醒</option>
+            <option value="6">提前6小时</option>
+            <option value="12">提前12小时</option>
+            <option value="24">提前1天</option>
+            <option value="72">提前3天</option>
+          </select>
           <button type="submit">添加</button>
         </form>
 
@@ -145,7 +184,7 @@
         <p id="empty-state" class="empty">当前没有待办事项，快添加一个吧！</p>
 
         <div class="stats">
-          <span id="total-count">总计：0</span>
+          <span id="total-count">共计：0</span>
           <span id="done-count">已完成：0</span>
         </div>
       </section>
@@ -154,6 +193,8 @@
     <script>
       const form = document.getElementById("todo-form");
       const input = document.getElementById("todo-input");
+      const dateInput = document.getElementById("todo-date");
+      const remindSelect = document.getElementById("todo-remind");
       const list = document.getElementById("todo-list");
       const empty = document.getElementById("empty-state");
       const total = document.getElementById("total-count");
@@ -163,11 +204,34 @@
 
       const persist = () => localStorage.setItem("todos", JSON.stringify(state));
 
+      const needsReminder = (item) => {
+        if (!item.dueDate || !item.remindBeforeHours || item.completed) return false;
+        const due = new Date(item.dueDate).getTime();
+        if (Number.isNaN(due)) return false;
+        const now = Date.now();
+        const remindThreshold = due - item.remindBeforeHours * 60 * 60 * 1000;
+        return now >= remindThreshold && now <= due;
+      };
+
+      const formatDate = (value) => {
+        if (!value) return "无截止日期";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "无截止日期";
+        return date.toLocaleString("zh-CN", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      };
+
       const refresh = () => {
         list.innerHTML = "";
         state.forEach((item) => {
           const li = document.createElement("li");
           if (item.completed) li.classList.add("completed");
+          if (needsReminder(item)) li.classList.add("due-soon");
 
           const checkbox = document.createElement("input");
           checkbox.type = "checkbox";
@@ -178,8 +242,24 @@
             refresh();
           });
 
+          const content = document.createElement("div");
+          content.className = "content";
+
           const text = document.createElement("span");
           text.textContent = item.text;
+
+          const meta = document.createElement("span");
+          meta.className = "meta";
+          meta.textContent = `截止：${formatDate(item.dueDate)}`;
+
+          content.append(text, meta);
+
+          if (needsReminder(item)) {
+            const badge = document.createElement("span");
+            badge.className = "badge";
+            badge.textContent = "需要提醒";
+            content.appendChild(badge);
+          }
 
           const remove = document.createElement("button");
           remove.type = "button";
@@ -191,14 +271,14 @@
             refresh();
           });
 
-          li.append(checkbox, text, remove);
+          li.append(checkbox, content, remove);
           list.appendChild(li);
         });
 
         const count = state.length;
         const completed = state.filter((todo) => todo.completed).length;
         empty.style.display = count ? "none" : "block";
-        total.textContent = `总计：${count}`;
+        total.textContent = `共计：${count}`;
         done.textContent = `已完成：${completed}`;
       };
 
@@ -206,11 +286,15 @@
         event.preventDefault();
         const text = input.value.trim();
         if (!text) return;
+        const dueDateValue = dateInput.value;
+        const remindHours = Number(remindSelect.value);
 
         state.push({
           id: crypto.randomUUID(),
           text,
           completed: false,
+          dueDate: dueDateValue || null,
+          remindBeforeHours: remindHours,
         });
 
         persist();
@@ -220,6 +304,7 @@
       });
 
       refresh();
+      setInterval(refresh, 60_000);
     </script>
   </body>
 </html>
